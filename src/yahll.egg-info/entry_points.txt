@@ -1,0 +1,2 @@
+[console_scripts]
+yahll = yahll.main:app
