@@ -6,30 +6,55 @@
 
 ## Current Status
 
-**Phase:** 1 — Core Agent  
-**Version:** 0.0.1 (pre-build)  
+**Phase:** 1 — Core Agent ✅ COMPLETE  
+**Version:** 0.1.0  
 **Last updated:** 2026-04-04  
-**Last session summary:** Designed the full project, wrote spec and implementation plan, set up folder structure on Desktop.
+**Last session summary:** Built entire core — Ollama client, all tools, agent loop, memory patches, CLI with REPL. 24/24 tests pass. `yahll` command works.
 
 ---
 
 ## What's Done ✅
 
-- [x] Full project design (see `docs/specs/2026-04-04-yahll-design.md`)
-- [x] Step-by-step implementation plan (see `docs/superpowers/plans/2026-04-04-yahll-implementation.md`)
-- [x] Project folder created on Desktop: `Yahll Project/`
-- [x] `CLAUDE.md` — Claude Code context file
-- [x] `Yahll.md` — this living tracker
-- [x] `patches/PATCH-NOTES.md` — version history started
-- [x] `skills/` folder with Yahll-specific skills
-- [x] `README.md`
+- [x] Full project design + implementation plan
+- [x] CLAUDE.md, Yahll.md, skills/, README.md
+- [x] **Task 1** — pyproject.toml, git init, `pip install -e .` → `yahll` command active
+- [x] **Task 2** — `src/yahll/core/ollama_client.py` — streaming client, 5 tests pass
+- [x] **Task 3** — `src/yahll/tools/bash.py`, `files.py`, `search.py` — 9 tests pass
+- [x] **Task 4** — `src/yahll/tools/registry.py` — 9 tools registered
+- [x] **Task 5** — `src/yahll/core/agent.py` — conversation loop + tool dispatch, 5 tests pass
+- [x] **Task 6** — `src/yahll/core/config.py` — ~/.yahll/config.yaml
+- [x] **Task 7** — `src/yahll/memory/patches.py` — session save/load, 5 tests pass
+- [x] **Task 8** — `src/yahll/main.py` — full CLI REPL with all slash commands
+- [x] **Task 9** — `src/yahll/tools/self_tools.py` — self_read, self_write, self_list + /upgrade
+- [x] **24/24 tests passing** — `pytest tests/ -v`
+- [x] **Tagged v0.1.0**
 
 ---
 
 ## What's Next 🔜
 
-### Task 1: Project Scaffold
-- [ ] Create `pyproject.toml`
+### Before first real use — install Ollama
+```bash
+winget install Ollama.Ollama
+ollama serve           # keep running in background
+ollama pull qwen2.5-coder:7b   # ~4.7GB, one time
+```
+
+### Phase 2 — Smart Memory (next session)
+- [ ] Ask model to summarize session instead of using first message
+- [ ] Populate `learned` list automatically from conversation
+- [ ] `src/yahll/memory/identity.py` — load/save identity.md + knowledge.md
+
+### Phase 3 — Web Search Tool
+- [ ] `src/yahll/tools/web_search.py` using DuckDuckGo (no API key)
+- [ ] Register in registry.py
+
+### Phase 4 — VS Code Extension (future)
+
+---
+
+### OLD Task 1: Project Scaffold (DONE)
+- [x] Create `pyproject.toml`
 - [ ] Create `src/yahll/__init__.py` and all `__init__.py` files
 - [ ] Run `pip install -e .`
 - [ ] Verify `yahll --help` works
