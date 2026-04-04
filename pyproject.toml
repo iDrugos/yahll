@@ -20,5 +20,8 @@ dev = ["pytest>=8.0.0"]
 [project.scripts]
 yahll = "yahll.main:app"
 
+[tool.pytest.ini_options]
+env = ["PYTHONUTF8=1"]
+
 [tool.setuptools.packages.find]
 where = ["src"]

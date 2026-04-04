@@ -23,3 +23,18 @@
 
 ---
 *Each session adds a new entry here automatically.*
+
+### 2026-04-04-191822
+Session 2026-04-04 — Salut! Cine esti si ce poti face? Raspunde scurt.
+
+### 2026-04-04-192019
+Session 2026-04-04 — Salut! Cine esti? Raspunde in 2 propozitii.
+
+### 2026-04-04-192050
+Session 2026-04-04 — Create a file called hello.py on the desktop that prints 'He
+
+### 2026-04-04-192107
+Session 2026-04-04 — run the hello.py file you just created on the desktop
+
+### 2026-04-04-192124
+Session 2026-04-04 — run hello.py from the current directory using bash
