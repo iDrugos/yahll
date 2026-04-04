@@ -61,6 +61,7 @@ class Agent:
                     "content": full_content,
                     "tool_calls": tool_calls,
                 })
+                tool_results = []
                 for tc in tool_calls:
                     fn = tc["function"]
                     name = fn["name"]
@@ -71,10 +72,13 @@ class Agent:
                         except json.JSONDecodeError:
                             args = {}
                     result = dispatch(name, args)
-                    self.messages.append({
-                        "role": "tool",
-                        "content": json.dumps(result),
-                    })
+                    tool_results.append(f"[Tool: {name}]\n{json.dumps(result, ensure_ascii=False)}")
+
+                # Send tool results as a single user message — works with all Ollama models
+                self.messages.append({
+                    "role": "user",
+                    "content": "\n\n".join(tool_results) + "\n\nPlease continue based on the tool results above.",
+                })
                 continue
 
             # No tool calls — final answer
