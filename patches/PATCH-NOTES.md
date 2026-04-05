@@ -38,3 +38,6 @@ Session 2026-04-04 — run the hello.py file you just created on the desktop
 
 ### 2026-04-04-192124
 Session 2026-04-04 — run hello.py from the current directory using bash
+
+### 2026-04-04-193144
+Session 2026-04-04 — install the numpy library using pip

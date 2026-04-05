@@ -21,6 +21,7 @@ from yahll.core.config import load_config, save_config
 from yahll.memory.patches import (
     save_patch, load_latest_patch, list_patches, build_context_from_patch
 )
+from yahll.memory.identity import get_identity_context, load_identity
 
 app = typer.Typer(help="Yahll — your self-evolving local AI coding agent", add_completion=False)
 console = Console()
@@ -31,9 +32,16 @@ PROJECT_DIR = os.path.expanduser("~/Desktop/Yahll Project")
 
 def _make_agent(config: dict) -> Agent:
     agent = Agent(model=config["model"], base_url=config["ollama_url"])
+
+    # Inject PC identity — Yahll knows its home machine
+    identity_ctx = get_identity_context()
+    agent.inject_context(identity_ctx)
+
+    # Inject last session patch on top
     patch = load_latest_patch()
     if patch:
-        agent.inject_context(build_context_from_patch(patch))
+        agent.inject_context(identity_ctx + "\n\n" + build_context_from_patch(patch))
+
     return agent
 
 
@@ -44,6 +52,7 @@ def _handle_slash_command(cmd: str, agent: Agent, config: dict) -> bool:
     if command == "/help":
         console.print(Panel(
             "/help          — this list\n"
+            "/whoami        — Yahll's full home identity (PC specs, paths)\n"
             "/status        — version + last session\n"
             "/history       — all saved patches\n"
             "/memory        — what Yahll knows about you\n"
@@ -76,6 +85,11 @@ def _handle_slash_command(cmd: str, agent: Agent, config: dict) -> bool:
             console.print("[yellow]No sessions saved yet.[/yellow]")
         for p in patches[-10:]:
             console.print(f"[cyan]{p['file']}[/cyan] — {p.get('summary', 'no summary')}")
+        return True
+
+    if command == "/whoami":
+        identity = load_identity()
+        console.print(Markdown(identity))
         return True
 
     if command == "/memory":
