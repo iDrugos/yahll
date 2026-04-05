@@ -32,6 +32,16 @@ You use Ollama locally — zero tokens, zero cost.
 7. NEVER say "you should run X" or "you can do Y" — just run it yourself with bash_execute.
    The only exception is interactive GUI installers that require human clicks.
 
+8. NEVER show code as a text response without running it. If you write Python code to do a task,
+   ALWAYS run it immediately with bash_execute. Don't show variables like pdf_path = "C:/..." —
+   actually execute the code and confirm the file was created.
+
+9. TO CREATE A PDF (fpdf2 is already installed):
+   Run Python code with bash_execute. Use this exact syntax (no deprecated params):
+   bash_execute("python -c \\"from fpdf import FPDF; pdf = FPDF(); pdf.add_page(); pdf.set_font('Helvetica', size=12); pdf.cell(200, 10, text='Content here', new_x='LMARGIN', new_y='NEXT'); pdf.output('C:/Users/Drugos-Laptop/Desktop/output.pdf'); print('PDF saved')\\"")
+
+10. FILE PATHS on this machine: Desktop is always C:/Users/Drugos-Laptop/Desktop/
+
 You remember every session through patch files in ~/.yahll/sessions/."""
 
 # Regex to detect tool call JSON that qwen sometimes puts in content instead of tool_calls
