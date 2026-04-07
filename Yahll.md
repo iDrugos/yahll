@@ -6,10 +6,10 @@
 
 ## Current Status
 
-**Phase:** 2 — Smart Memory 🔄 IN PROGRESS  
+**Phase:** 3 — Self-Upgrade ✅ COMPLETE  
 **Version:** 0.1.1  
 **Last updated:** 2026-04-07  
-**Last session summary:** Fixed Phase 1 bugs, implemented Phase 2 smart memory — model-driven session summaries, knowledge.md persistent knowledge base. 30/30 tests pass.
+**Last session summary:** Phase 2 smart memory committed (knowledge.py, model summaries, multi-format tool parsing). Phase 3 self-upgrade complete — upgrades.py, snapshots.py, /upgrade pipeline. 41/41 tests pass.
 
 ---
 
@@ -30,7 +30,12 @@
 - [x] **Phase 2: Model-driven summary** — `model_summarize_session()` in patches.py — Ollama summarizes sessions
 - [x] **Phase 2: knowledge.md** — `src/yahll/memory/knowledge.py` — persistent growing fact base
 - [x] **Phase 2: Smart context injection** — identity + knowledge + last patch combined at startup
-- [x] **30/30 tests passing** — `pytest tests/ -v`
+- [x] **Phase 2: clipboard + web_search tools** — registered in registry.py
+- [x] **Phase 2: agent history trimming + multi-format tool call parsing**
+- [x] **Phase 3: snapshots.py** — in-memory snapshot + restore of all src/yahll/ .py files
+- [x] **Phase 3: upgrades.py** — run_tests(), bump_patch_version(), git_commit_upgrade()
+- [x] **Phase 3: /upgrade pipeline** — snapshot → model audits → tests → commit/rollback
+- [x] **41/41 tests passing** — `pytest tests/ -v`
 
 ---
 
@@ -43,16 +48,14 @@ ollama serve           # keep running in background
 ollama pull qwen2.5-coder:7b   # ~4.7GB, one time
 ```
 
-### Phase 2 — Smart Memory (next session)
-- [ ] Ask model to summarize session instead of using first message
-- [ ] Populate `learned` list automatically from conversation
-- [ ] `src/yahll/memory/identity.py` — load/save identity.md + knowledge.md
-
-### Phase 3 — Web Search Tool
-- [ ] `src/yahll/tools/web_search.py` using DuckDuckGo (no API key)
-- [ ] Register in registry.py
-
 ### Phase 4 — VS Code Extension (future)
+- [ ] Design extension architecture
+- [ ] Wire Yahll backend as language server
+
+### Phase 5 — First Real Self-Upgrade (smoke test)
+- [ ] Start Yahll and run `/upgrade`
+- [ ] Verify model audits, applies change, tests pass, git commit created
+- [ ] Verify version bumped in pyproject.toml
 
 ---
 
