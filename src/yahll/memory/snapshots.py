@@ -13,15 +13,17 @@ def snapshot_source() -> dict:
             with open(path, "r", encoding="utf-8") as f:
                 snapshot[path] = f.read()
         except Exception:
-            pass
+            pass  # Skip unreadable files — partial snapshot is acceptable
     return snapshot
 
 
-def restore_snapshot(snapshot: dict):
-    """Write all files back from snapshot dict."""
+def restore_snapshot(snapshot: dict) -> list[str]:
+    """Write all files back from snapshot dict. Returns list of paths that failed."""
+    failed = []
     for path, content in snapshot.items():
         try:
             with open(path, "w", encoding="utf-8") as f:
                 f.write(content)
-        except Exception:
-            pass
+        except Exception as e:
+            failed.append(path)
+    return failed
