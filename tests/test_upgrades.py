@@ -1,4 +1,5 @@
 import os
+import subprocess
 import tempfile
 import pytest
 from unittest.mock import patch as mock_patch, MagicMock
@@ -78,3 +79,67 @@ def test_restore_snapshot_returns_failed_paths():
         snap = {bad_path: "content"}
         failed = restore_snapshot(snap)
         assert bad_path in failed
+
+
+# --- upgrades.py tests ---
+
+def test_run_tests_returns_true_on_success():
+    with mock_patch("yahll.memory.upgrades.subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0, stdout="30 passed", stderr="")
+        from yahll.memory.upgrades import run_tests
+        passed, output = run_tests()
+    assert passed is True
+    assert "30 passed" in output
+
+
+def test_run_tests_returns_false_on_failure():
+    with mock_patch("yahll.memory.upgrades.subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=1, stdout="2 failed", stderr="")
+        from yahll.memory.upgrades import run_tests
+        passed, output = run_tests()
+    assert passed is False
+    assert "2 failed" in output
+
+
+def test_bump_patch_version_increments_correctly():
+    import yahll.memory.upgrades as upg_module
+    with tempfile.TemporaryDirectory() as d:
+        pyproject = os.path.join(d, "pyproject.toml")
+        with open(pyproject, "w") as f:
+            f.write('[project]\nversion = "0.1.1"\n')
+        with mock_patch.object(upg_module, "PYPROJECT_PATH", pyproject):
+            from yahll.memory.upgrades import bump_patch_version
+            new_ver = bump_patch_version()
+        assert new_ver == "0.1.2"
+        with open(pyproject) as f:
+            assert "0.1.2" in f.read()
+
+
+def test_bump_patch_version_from_zero():
+    import yahll.memory.upgrades as upg_module
+    with tempfile.TemporaryDirectory() as d:
+        pyproject = os.path.join(d, "pyproject.toml")
+        with open(pyproject, "w") as f:
+            f.write('[project]\nversion = "0.1.0"\n')
+        with mock_patch.object(upg_module, "PYPROJECT_PATH", pyproject):
+            from yahll.memory.upgrades import bump_patch_version
+            new_ver = bump_patch_version()
+        assert new_ver == "0.1.1"
+
+
+def test_git_commit_upgrade_returns_true_on_success():
+    with mock_patch("yahll.memory.upgrades.subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(returncode=0)
+        from yahll.memory.upgrades import git_commit_upgrade
+        ok, msg = git_commit_upgrade("add retry logic", "0.1.2")
+    assert ok is True
+    assert "0.1.2" in msg
+    assert "add retry logic" in msg
+
+
+def test_git_commit_upgrade_returns_false_on_failure():
+    with mock_patch("yahll.memory.upgrades.subprocess.run") as mock_run:
+        mock_run.side_effect = subprocess.CalledProcessError(1, "git")
+        from yahll.memory.upgrades import git_commit_upgrade
+        ok, msg = git_commit_upgrade("some plan", "0.1.2")
+    assert ok is False
