@@ -21,16 +21,23 @@ class OllamaClient:
     def chat_stream(self, messages: list, tools: list | None = None) -> Iterator[dict]:
         """Stream chat response from Ollama. Yields parsed JSON chunks."""
         payload = self._build_payload(messages, tools)
-        with httpx.stream(
-            "POST",
-            f"{self.base_url}/api/chat",
-            json=payload,
-            timeout=120.0,
-        ) as response:
-            response.raise_for_status()
-            for line in response.iter_lines():
-                if line.strip():
-                    yield json.loads(line)
+        try:
+            with httpx.stream(
+                "POST",
+                f"{self.base_url}/api/chat",
+                json=payload,
+                timeout=180.0,
+            ) as response:
+                if response.status_code == 500:
+                    # Context overflow — yield an error message chunk
+                    yield {"message": {"content": "[ERROR: Ollama returned 500 — context may be too long. Type /clear to reset.]", "role": "assistant"}}
+                    return
+                response.raise_for_status()
+                for line in response.iter_lines():
+                    if line.strip():
+                        yield json.loads(line)
+        except httpx.HTTPStatusError as e:
+            yield {"message": {"content": f"[ERROR: {e.response.status_code} from Ollama. Try /clear to reset context.]", "role": "assistant"}}
 
     def list_models(self) -> list[str]:
         """Return list of available Ollama model names."""

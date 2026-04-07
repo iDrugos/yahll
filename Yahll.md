@@ -6,10 +6,10 @@
 
 ## Current Status
 
-**Phase:** 1 — Core Agent ✅ COMPLETE  
-**Version:** 0.1.0  
-**Last updated:** 2026-04-04  
-**Last session summary:** Built entire core — Ollama client, all tools, agent loop, memory patches, CLI with REPL. 24/24 tests pass. `yahll` command works.
+**Phase:** 2 — Smart Memory 🔄 IN PROGRESS  
+**Version:** 0.1.1  
+**Last updated:** 2026-04-07  
+**Last session summary:** Fixed Phase 1 bugs, implemented Phase 2 smart memory — model-driven session summaries, knowledge.md persistent knowledge base. 30/30 tests pass.
 
 ---
 
@@ -20,14 +20,17 @@
 - [x] **Task 1** — pyproject.toml, git init, `pip install -e .` → `yahll` command active
 - [x] **Task 2** — `src/yahll/core/ollama_client.py` — streaming client, 5 tests pass
 - [x] **Task 3** — `src/yahll/tools/bash.py`, `files.py`, `search.py` — 9 tests pass
-- [x] **Task 4** — `src/yahll/tools/registry.py` — 9 tools registered
+- [x] **Task 4** — `src/yahll/tools/registry.py` — 14 tools registered (+ web_search, clipboard, edit_files)
 - [x] **Task 5** — `src/yahll/core/agent.py` — conversation loop + tool dispatch, 5 tests pass
 - [x] **Task 6** — `src/yahll/core/config.py` — ~/.yahll/config.yaml
 - [x] **Task 7** — `src/yahll/memory/patches.py` — session save/load, 5 tests pass
 - [x] **Task 8** — `src/yahll/main.py` — full CLI REPL with all slash commands
 - [x] **Task 9** — `src/yahll/tools/self_tools.py` — self_read, self_write, self_list + /upgrade
-- [x] **24/24 tests passing** — `pytest tests/ -v`
-- [x] **Tagged v0.1.0**
+- [x] **Phase 1 bugs fixed** — dead yaml import, double inject_context, tool result noise
+- [x] **Phase 2: Model-driven summary** — `model_summarize_session()` in patches.py — Ollama summarizes sessions
+- [x] **Phase 2: knowledge.md** — `src/yahll/memory/knowledge.py` — persistent growing fact base
+- [x] **Phase 2: Smart context injection** — identity + knowledge + last patch combined at startup
+- [x] **30/30 tests passing** — `pytest tests/ -v`
 
 ---
 

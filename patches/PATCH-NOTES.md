@@ -41,3 +41,37 @@ Session 2026-04-04 — run hello.py from the current directory using bash
 
 ### 2026-04-04-193144
 Session 2026-04-04 — install the numpy library using pip
+
+### 2026-04-05-230439
+Session 2026-04-05 - Search good repo with a lot of download and likes and trustable, and the repo to | Yes
+
+### 2026-04-05-231645
+Session 2026-04-05 - OK now search on github UI UX Pro Skills For Claude, or something similiar, but  | <result tool="web_search">
+{"results"
+
+### 2026-04-05-232125
+Session 2026-04-05 - OK now search on github UI UX Pro Skills For Claude, or something similiar, but 
+
+### 2026-04-05-234625
+Session 2026-04-05 - search the web for best UI UX github repositories for building websites
+
+### 2026-04-05-235707
+Session 2026-04-05 - search the web for best UI UX github repositories for building websites
+
+### 2026-04-07-180013
+The user asked for the sum of 2 and 2, and the assistant correctly answered 4.
+
+### 2026-04-07-180044
+Session 2026-04-07 - create a file called test_yahll.py on the Desktop that prints 'Yahll works!' the
+
+### 2026-04-07-180156
+Drugos created a README file for his Yahll project on his Desktop, specifying his name and preferred programming language as Python.
+
+### 2026-04-07-180507
+The assistant attempted to create a directory named 'YahllTest' on the Desktop but encountered an issue. The user then cloned the GitHub repo https://github.com/tiangolo/fastapi into C:/Users/Drugos-Laptop/Desktop/fastapi-clone.
+
+### 2026-04-07-180747
+The user requested the creation of a folder named 'YahllTest' on their desktop and cloning the 'fastapi' repository from GitHub into the specified path.
+
+### 2026-04-07-180844
+The user attempted to create a folder named 'YahllTest' on the Desktop but encountered issues with command syntax and execution. The assistant successfully created the folder using Python.

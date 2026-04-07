@@ -1,7 +1,6 @@
 import os
 import subprocess
 import platform
-import yaml
 
 YAHLL_HOME = os.path.expanduser("~/.yahll")
 IDENTITY_PATH = os.path.join(YAHLL_HOME, "identity.md")

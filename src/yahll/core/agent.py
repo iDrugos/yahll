@@ -31,6 +31,7 @@ You use Ollama locally — zero tokens, zero cost.
 
 7. NEVER say "you should run X" or "you can do Y" — just run it yourself with bash_execute.
    The only exception is interactive GUI installers that require human clicks.
+   NEVER show a tool call as text like bash_execute("cmd") — always invoke it directly.
 
 8. NEVER show code as a text response without running it. If you write Python code to do a task,
    ALWAYS run it immediately with bash_execute. Don't show variables like pdf_path = "C:/..." —
@@ -44,21 +45,80 @@ You use Ollama locally — zero tokens, zero cost.
 
 You remember every session through patch files in ~/.yahll/sessions/."""
 
-# Regex to detect tool call JSON that qwen sometimes puts in content instead of tool_calls
-_TOOL_CALL_RE = re.compile(r'\{\s*"name"\s*:\s*"(\w+)"\s*,\s*"arguments"\s*:\s*(\{[^}]*\})\s*\}', re.DOTALL)
+# Format 1: {"name": "tool_name", "arguments": {...}}
+_TOOL_CALL_RE = re.compile(
+    r'\{\s*"name"\s*:\s*"(\w+)"\s*,\s*"arguments"\s*:\s*(\{.*?\})\s*\}',
+    re.DOTALL,
+)
+
+# Format 2: <tool_call>{"name": "...", "arguments": {...}}</tool_call>
+_TOOL_CALL_TAG_RE = re.compile(
+    r'<tool_call>\s*\{\s*"name"\s*:\s*"(\w+)"\s*,\s*"arguments"\s*:\s*(\{.*?\})\s*\}\s*</tool_call>',
+    re.DOTALL,
+)
+
+_ALL_TOOL_REGEXES = [_TOOL_CALL_RE, _TOOL_CALL_TAG_RE]
+
+# Format 3: Python-style — bash_execute("cmd"), read_file("path"), write_file("path", "content")
+# Maps tool name → first positional arg name
+_PYTHON_CALL_ARG_MAP = {
+    "bash_execute": "command",
+    "read_file": "path",
+    "list_directory": "path",
+    "self_read": "relative_path",
+    "web_search": "query",
+    "web_news": "query",
+    "clipboard_write": "text",
+}
+
+# Matches: tool_name("single string arg") with single or double quotes
+_PYTHON_CALL_RE = re.compile(
+    r'\b(' + '|'.join(re.escape(k) for k in _PYTHON_CALL_ARG_MAP) + r')\s*\(\s*(["\'])(.*?)\2\s*\)',
+    re.DOTALL,
+)
+
+
+def _try_parse_args(raw: str) -> dict | None:
+    """Try to parse JSON args, returning None on failure."""
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+
+
+def _extract_python_tool_calls(content: str) -> list[dict]:
+    """Catch Python-style text tool calls like bash_execute('cmd')."""
+    calls = []
+    seen_names = set()
+    for match in _PYTHON_CALL_RE.finditer(content):
+        name = match.group(1)
+        value = match.group(3)
+        if name not in seen_names:
+            seen_names.add(name)
+            arg_key = _PYTHON_CALL_ARG_MAP[name]
+            calls.append({"function": {"name": name, "arguments": {arg_key: value}}})
+    return calls
 
 
 def _extract_text_tool_calls(content: str) -> list[dict]:
     """Some Ollama models return tool calls as JSON text in content. Parse them."""
     calls = []
-    for match in _TOOL_CALL_RE.finditer(content):
-        try:
+    seen_names = set()
+    for pattern in _ALL_TOOL_REGEXES:
+        for match in pattern.finditer(content):
             name = match.group(1)
-            args = json.loads(match.group(2))
-            calls.append({"function": {"name": name, "arguments": args}})
-        except (json.JSONDecodeError, KeyError):
-            continue
+            args = _try_parse_args(match.group(2))
+            if args is not None and name not in seen_names:
+                seen_names.add(name)
+                calls.append({"function": {"name": name, "arguments": args}})
     return calls
+
+
+def _strip_tool_call_text(content: str) -> str:
+    """Remove all text-based tool call patterns from content."""
+    for pattern in _ALL_TOOL_REGEXES:
+        content = pattern.sub("", content)
+    return content.strip()
 
 
 class Agent:
@@ -66,8 +126,17 @@ class Agent:
         self.client = OllamaClient(base_url=base_url, model=model)
         self.messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
 
+    def _trim_history(self, max_non_system: int = 20):
+        """Keep only the system prompt + last N non-system messages to avoid context overflow."""
+        system = [m for m in self.messages if m["role"] == "system"]
+        others = [m for m in self.messages if m["role"] != "system"]
+        if len(others) > max_non_system:
+            others = others[-max_non_system:]
+        self.messages = system + others
+
     def chat(self, user_message: str) -> str:
         """Send a message and return the final text response, executing tools as needed."""
+        self._trim_history()
         self.messages.append({"role": "user", "content": user_message})
 
         for _ in range(10):  # max 10 tool call rounds
@@ -86,7 +155,12 @@ class Agent:
             if not tool_calls and full_content:
                 tool_calls = _extract_text_tool_calls(full_content)
                 if tool_calls:
-                    full_content = _TOOL_CALL_RE.sub("", full_content).strip()
+                    full_content = _strip_tool_call_text(full_content)
+                else:
+                    # Last resort: catch Python-style calls like bash_execute("cmd")
+                    tool_calls = _extract_python_tool_calls(full_content)
+                    if tool_calls:
+                        full_content = _PYTHON_CALL_RE.sub("", full_content).strip()
 
             if tool_calls:
                 self.messages.append({
@@ -105,12 +179,14 @@ class Agent:
                         except json.JSONDecodeError:
                             args = {}
                     result = dispatch(name, args)
-                    tool_results.append(f"[Tool: {name}]\n{json.dumps(result, ensure_ascii=False)}")
+                    tool_results.append(
+                        f"<result tool=\"{name}\">\n{json.dumps(result, ensure_ascii=False)}\n</result>"
+                    )
 
                 # Send tool results as a single user message — works with all Ollama models
                 self.messages.append({
                     "role": "user",
-                    "content": "\n\n".join(tool_results) + "\n\nPlease continue based on the tool results above.",
+                    "content": "\n\n".join(tool_results),
                 })
                 continue
 

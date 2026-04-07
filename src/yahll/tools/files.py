@@ -44,3 +44,22 @@ def edit_file(path: str, old_string: str, new_string: str) -> dict:
         return {"success": True}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+def edit_files(edits: list) -> dict:
+    """Apply multiple edits across multiple files in one call.
+
+    edits: list of {"path": str, "old_string": str, "new_string": str}
+    Returns summary of applied/failed edits.
+    """
+    results = []
+    for edit in edits:
+        path = edit.get("path", "")
+        old_string = edit.get("old_string", "")
+        new_string = edit.get("new_string", "")
+        result = edit_file(path, old_string, new_string)
+        results.append({"path": path, **result})
+
+    succeeded = sum(1 for r in results if r.get("success"))
+    failed = len(results) - succeeded
+    return {"total": len(results), "succeeded": succeeded, "failed": failed, "results": results}

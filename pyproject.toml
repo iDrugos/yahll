@@ -12,6 +12,9 @@ dependencies = [
     "rich>=13.0.0",
     "httpx>=0.27.0",
     "pyyaml>=6.0",
+    "ddgs>=0.1",
+    "pyperclip>=1.8.0",
+    "fpdf2>=2.7.0",
 ]
 
 [project.optional-dependencies]

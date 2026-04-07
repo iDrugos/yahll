@@ -1,7 +1,9 @@
 from yahll.tools.bash import bash_execute
-from yahll.tools.files import read_file, write_file, edit_file
+from yahll.tools.files import read_file, write_file, edit_file, edit_files
 from yahll.tools.search import search_files, list_directory
 from yahll.tools.self_tools import self_read, self_write, self_list
+from yahll.tools.web_search import web_search, web_news
+from yahll.tools.clipboard import clipboard_read, clipboard_write
 
 TOOL_SCHEMAS = [
     {
@@ -60,6 +62,31 @@ TOOL_SCHEMAS = [
                     "new_string": {"type": "string"},
                 },
                 "required": ["path", "old_string", "new_string"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "edit_files",
+            "description": "Apply multiple edits across multiple files in one call. Pass a list of {path, old_string, new_string} objects.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "edits": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "path": {"type": "string"},
+                                "old_string": {"type": "string"},
+                                "new_string": {"type": "string"},
+                            },
+                            "required": ["path", "old_string", "new_string"],
+                        },
+                    }
+                },
+                "required": ["edits"],
             },
         },
     },
@@ -130,6 +157,58 @@ TOOL_SCHEMAS = [
             "parameters": {"type": "object", "properties": {}, "required": []},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "web_search",
+            "description": "Search the web using DuckDuckGo. No API key needed.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Search query"},
+                    "max_results": {"type": "integer", "default": 5},
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "web_news",
+            "description": "Search for recent news using DuckDuckGo.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "News search query"},
+                    "max_results": {"type": "integer", "default": 5},
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "clipboard_read",
+            "description": "Read the current clipboard content.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "clipboard_write",
+            "description": "Write text to the clipboard.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "Text to copy to clipboard"}
+                },
+                "required": ["text"],
+            },
+        },
+    },
 ]
 
 TOOL_DISPATCH = {
@@ -137,11 +216,16 @@ TOOL_DISPATCH = {
     "read_file": read_file,
     "write_file": write_file,
     "edit_file": edit_file,
+    "edit_files": edit_files,
     "search_files": search_files,
     "list_directory": list_directory,
     "self_read": self_read,
     "self_write": self_write,
     "self_list": self_list,
+    "web_search": web_search,
+    "web_news": web_news,
+    "clipboard_read": clipboard_read,
+    "clipboard_write": clipboard_write,
 }
 
 
