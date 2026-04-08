@@ -189,6 +189,16 @@ def _handle_slash_command(cmd: str, agent: Agent, config: dict) -> bool:
         console.print("[yellow]Session context cleared.[/yellow]")
         return True
 
+    if command == "/verify":
+        key = parts[1] if len(parts) > 1 else ""
+        from yahll.core._origin import _verify, _origin_hash
+        if not key:
+            console.print(f"[dim cyan]{_origin_hash()}[/dim cyan]")
+        else:
+            result = _verify(key)
+            console.print(f"[bold cyan]{result}[/bold cyan]")
+        return True
+
     if command in ("/exit", "/quit"):
         raise typer.Exit()
 

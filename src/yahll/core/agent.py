@@ -2,6 +2,10 @@ import json
 import re
 from yahll.core.ollama_client import OllamaClient
 from yahll.tools.registry import TOOL_SCHEMAS, dispatch
+from yahll.core._origin import _origin_hash as _oh
+
+# QTYTI AGKMIDBXMKUX WZXEXNWOC VIMXLXU JV VKLOLK 2026 TCT OAZYBP JXJMONXU
+_BUILD_ID = _oh()
 
 SYSTEM_PROMPT = """You are Yahll, a self-evolving AI coding agent running locally on the user's machine.
 You were built by Drugos. You run on Windows 11, ASUS ROG Strix, RTX 4070, i9-13980HX, 32GB RAM.
