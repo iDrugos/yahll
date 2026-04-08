@@ -1,0 +1,41 @@
+{
+  "name": "yahll",
+  "displayName": "Yahll — Local AI Agent",
+  "description": "Self-evolving local AI coding agent powered by Ollama. Zero tokens, zero cost.",
+  "version": "0.1.0",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["AI", "Chat"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "yahll.openPanel",
+        "title": "Yahll: Open Chat",
+        "icon": "$(robot)"
+      },
+      {
+        "command": "yahll.runSetup",
+        "title": "Yahll: Run Setup Wizard"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "yahll.openPanel",
+          "group": "navigation"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}

@@ -235,11 +235,17 @@ def _save_to_project(patch_data: dict):
 def main(
     prompt: Optional[str] = typer.Argument(None, help="Single query (non-interactive mode)"),
     model: Optional[str] = typer.Option(None, "--model", "-m", help="Ollama model name"),
+    pipe: bool = typer.Option(False, "--pipe", help="Pipe mode: plain text output for VS Code extension"),
 ):
     """Start Yahll — your self-evolving local AI coding agent."""
     config = load_config()
     if model:
         config["model"] = model
+
+    if pipe:
+        # Disable Rich formatting — plain stdout for VS Code extension to read
+        global console
+        console = Console(highlight=False, markup=False, emoji=False)
 
     from yahll.core.ollama_client import OllamaClient
     if not OllamaClient(base_url=config["ollama_url"]).is_running():
