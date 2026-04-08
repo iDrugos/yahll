@@ -16,6 +16,9 @@ from rich.console import Console
 from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.prompt import Prompt
+from rich.rule import Rule
+from rich.text import Text
+from rich.align import Align
 
 from yahll.core.agent import Agent
 from yahll.core.config import load_config, save_config
@@ -56,19 +59,23 @@ def _handle_slash_command(cmd: str, agent: Agent, config: dict) -> bool:
     command = parts[0].lower()
 
     if command == "/help":
-        console.print(Panel(
-            "/help          — this list\n"
-            "/whoami        — Yahll's full home identity (PC specs, paths)\n"
-            "/status        — version + last session\n"
-            "/history       — all saved patches\n"
-            "/memory        — what Yahll knows about you\n"
-            "/model NAME    — switch Ollama model\n"
-            "/upgrade       — Yahll improves itself\n"
-            "/clear         — clear session context\n"
-            "/exit          — quit and save session",
-            title="[bold cyan]Yahll Commands[/bold cyan]",
-            border_style="cyan",
-        ))
+        console.print()
+        console.print(Rule("[bold cyan]COMMAND REGISTRY[/bold cyan]", style="cyan dim"))
+        cmds = [
+            ("/help",       "this list"),
+            ("/whoami",     "Yahll's identity — PC specs, paths"),
+            ("/status",     "version + last session info"),
+            ("/history",    "all saved session patches"),
+            ("/memory",     "what Yahll knows about you"),
+            ("/model NAME", "switch Ollama model"),
+            ("/upgrade",    "Yahll audits and improves itself"),
+            ("/clear",      "clear session context"),
+            ("/exit",       "quit and save session"),
+        ]
+        for cmd_name, desc in cmds:
+            console.print(f"  [cyan]{cmd_name:<16}[/cyan] [dim]──[/dim]  {desc}")
+        console.print(Rule(style="cyan dim"))
+        console.print()
         return True
 
     if command == "/status":
@@ -231,6 +238,28 @@ def _save_to_project(patch_data: dict):
             f.write(f"\n### {timestamp}\n{patch_data.get('summary', '')}\n")
 
 
+BANNER = """\
+ ██╗   ██╗ █████╗ ██╗  ██╗██╗     ██╗
+ ╚██╗ ██╔╝██╔══██╗██║  ██║██║     ██║
+  ╚████╔╝ ███████║███████║██║     ██║
+   ╚██╔╝  ██╔══██║██╔══██║██║     ██║
+    ██║   ██║  ██║██║  ██║███████╗███████╗
+    ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝"""
+
+
+def _print_boot_screen(config: dict, version: str):
+    console.print()
+    console.print(Align(Text(BANNER, style="bold cyan"), align="left"))
+    console.print()
+    console.print(Rule(style="cyan dim"))
+    console.print(f"  [bold cyan]YAHLL INTELLIGENCE FRAMEWORK[/bold cyan]  [dim]v{version}[/dim]")
+    console.print(f"  [dim cyan]NEURAL CORE   ──[/dim cyan] [green]{config['model']}[/green]")
+    console.print(f"  [dim cyan]RUNTIME       ──[/dim cyan] [dim]Ollama  ●  LOCAL  ●  ZERO TOKENS[/dim]")
+    console.print(f"  [dim cyan]COMMANDS      ──[/dim cyan] [dim]/help  /upgrade  /memory  /status  /exit[/dim]")
+    console.print(Rule(style="cyan dim"))
+    console.print()
+
+
 @app.command()
 def main(
     prompt: Optional[str] = typer.Argument(None, help="Single query (non-interactive mode)"),
@@ -262,24 +291,23 @@ def main(
         _save_session(agent, config)
         return
 
-    # Interactive REPL
-    console.print(Panel(
-        f"[bold cyan]Yahll v{VERSION}[/bold cyan] — local AI coding agent\n"
-        f"Model: [green]{config['model']}[/green]  |  "
-        f"Type [yellow]/help[/yellow] for commands  |  [yellow]/exit[/yellow] to quit",
-        border_style="cyan",
-    ))
+    # Interactive REPL — JARVIS boot screen
+    _print_boot_screen(config, VERSION)
 
     patch = load_latest_patch()
     if patch:
-        console.print(f"[dim]Resumed: {patch.get('summary', 'last session')}[/dim]\n")
+        summary = patch.get("summary", "last session")
+        console.print(f"  [dim cyan]LAST SESSION ──[/dim cyan] [dim]{summary}[/dim]\n")
     else:
-        console.print("[dim]Fresh start — no previous sessions.[/dim]\n")
+        console.print("  [dim cyan]STATUS ──[/dim cyan] [dim]No previous sessions. Fresh start.[/dim]\n")
+
+    console.print(Rule(style="cyan dim"))
+    console.print()
 
     try:
         while True:
             try:
-                user_input = Prompt.ask("[bold cyan]you[/bold cyan]")
+                user_input = Prompt.ask("  [bold cyan]>[/bold cyan]")
             except (EOFError, KeyboardInterrupt):
                 break
 
@@ -290,17 +318,20 @@ def main(
                 _handle_slash_command(user_input, agent, config)
                 continue
 
-            with console.status("[dim]thinking...[/dim]", spinner="dots"):
+            with console.status("  [dim cyan]PROCESSING...[/dim cyan]", spinner="dots"):
                 response = agent.chat(user_input)
 
-            console.print(f"\n[bold green]yahll[/bold green]")
+            console.print()
+            console.print("  [bold cyan]YAHLL[/bold cyan]  [dim cyan]────────────────────────────[/dim cyan]")
             console.print(Markdown(response))
             console.print()
 
     finally:
         if config.get("auto_save_patches", True):
             _save_session(agent, config)
-            console.print("\n[dim]Session saved.[/dim]")
+        console.print()
+        console.print(Rule(style="cyan dim"))
+        console.print("  [dim cyan][ SESSION TERMINATED — INTELLIGENCE OFFLINE ][/dim cyan]\n")
 
 
 if __name__ == "__main__":
