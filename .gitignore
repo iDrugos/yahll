@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# pytest
+.pytest_cache/
+.coverage
+htmlcov/
+
+# VS Code extension
+vscode-extension/node_modules/
+vscode-extension/out/
+vscode-extension/*.vsix
+
+# Yahll runtime
+patches/session-*.json
+patches/snapshot-*/
+src/yahll/memory/identity.md
+src/yahll/memory/knowledge.md
+
+# Misc
+.DS_Store
+Thumbs.db
+*.log
+.env
