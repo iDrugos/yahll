@@ -44,8 +44,8 @@ cd yahll
 # 2. Install Python package
 pip install -e .
 
-# 3. Run setup wizard (installs Ollama + picks best model for your hardware)
-python -m yahll.setup
+# 3. Run yahll — setup wizard runs automatically on first launch
+yahll
 ```
 
 The setup wizard auto-detects your GPU/VRAM and pulls the right model:

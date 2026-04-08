@@ -25,7 +25,7 @@ function runSetupWizard(context: vscode.ExtensionContext) {
         env: { FORCE_COLOR: '1' },
     });
     terminal.show();
-    terminal.sendText('python -m yahll.setup');
+    terminal.sendText('python -m yahll.memory.setup');
 
     // After setup, offer to open panel
     const disposable = vscode.window.onDidCloseTerminal(t => {

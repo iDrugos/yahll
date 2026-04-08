@@ -276,11 +276,18 @@ def main(
         global console
         console = Console(highlight=False, markup=False, emoji=False)
 
+    from yahll.memory.setup import is_setup_complete, run as run_setup
+    if not is_setup_complete():
+        run_setup()
+        # Reload config — setup may have written the model
+        config = load_config()
+        if model:
+            config["model"] = model
+
     from yahll.core.ollama_client import OllamaClient
     if not OllamaClient(base_url=config["ollama_url"]).is_running():
         console.print("[red bold]Ollama is not running.[/red bold]")
         console.print("Start it with: [yellow]ollama serve[/yellow]")
-        console.print("Then pull the model: [yellow]ollama pull qwen2.5-coder:7b[/yellow]")
         raise typer.Exit(1)
 
     agent = _make_agent(config)
