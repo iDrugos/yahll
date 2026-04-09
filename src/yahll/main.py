@@ -335,13 +335,25 @@ def main(
                 _handle_slash_command(user_input, agent, config)
                 continue
 
-            with console.status("  [dim cyan]PROCESSING...[/dim cyan]", spinner="dots"):
-                response = agent.chat(user_input)
-
             console.print()
             console.print("  [bold cyan]YAHLL[/bold cyan]  [dim cyan]────────────────────────────[/dim cyan]")
-            console.print(Markdown(response))
-            console.print()
+
+            response_parts = []
+
+            def on_token(text: str):
+                response_parts.append(text)
+                console.print(text, end="", highlight=False, markup=False)
+
+            def on_tool(name: str, result):
+                console.print(f"\n  [dim cyan][ {name} ][/dim cyan]", highlight=False)
+
+            response = agent.stream_chat(user_input, on_token=on_token, on_tool=on_tool)
+
+            # If nothing was streamed (tool-only response), print the final text
+            if not response_parts and response:
+                console.print(response, highlight=False, markup=False)
+
+            console.print("\n")
 
     finally:
         if config.get("auto_save_patches", True):

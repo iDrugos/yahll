@@ -198,6 +198,73 @@ class Agent:
             self.messages.append({"role": "assistant", "content": full_content})
             return full_content
 
+    def stream_chat(self, user_message: str, on_token=None, on_tool=None):
+        """
+        Like chat() but streams tokens live via callbacks.
+        on_token(text) — called for each text chunk as it arrives
+        on_tool(name, result) — called when a tool is executed
+        Returns the full final response string.
+        """
+        self._trim_history()
+        self.messages.append({"role": "user", "content": user_message})
+
+        for _ in range(10):
+            full_content = ""
+            tool_calls = []
+            streamed_any = False
+
+            for chunk in self.client.chat_stream(self.messages, tools=TOOL_SCHEMAS):
+                msg = chunk.get("message", {})
+                content = msg.get("content", "")
+                if content:
+                    full_content += content
+                    if on_token and not msg.get("tool_calls"):
+                        on_token(content)
+                        streamed_any = True
+                if msg.get("tool_calls"):
+                    tool_calls.extend(msg["tool_calls"])
+
+            # Fallback: detect tool calls in content text
+            if not tool_calls and full_content:
+                tool_calls = _extract_text_tool_calls(full_content)
+                if tool_calls:
+                    full_content = _strip_tool_call_text(full_content)
+                else:
+                    tool_calls = _extract_python_tool_calls(full_content)
+                    if tool_calls:
+                        full_content = _PYTHON_CALL_RE.sub("", full_content).strip()
+
+            if tool_calls:
+                self.messages.append({
+                    "role": "assistant",
+                    "content": full_content,
+                    "tool_calls": tool_calls,
+                })
+                tool_results = []
+                for tc in tool_calls:
+                    fn = tc["function"]
+                    name = fn["name"]
+                    args = fn.get("arguments", {})
+                    if isinstance(args, str):
+                        try:
+                            args = json.loads(args)
+                        except json.JSONDecodeError:
+                            args = {}
+                    result = dispatch(name, args)
+                    if on_tool:
+                        on_tool(name, result)
+                    tool_results.append(
+                        f"<result tool=\"{name}\">\n{json.dumps(result, ensure_ascii=False)}\n</result>"
+                    )
+                self.messages.append({
+                    "role": "user",
+                    "content": "\n\n".join(tool_results),
+                })
+                continue
+
+            self.messages.append({"role": "assistant", "content": full_content})
+            return full_content
+
         return full_content  # safety exit after 10 rounds
 
     def clear(self):
