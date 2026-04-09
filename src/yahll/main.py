@@ -5,11 +5,11 @@ import json
 from datetime import datetime
 from typing import Optional
 
-# Force UTF-8 output on Windows
+# Force UTF-8 output on Windows — must happen before Console is created
 if sys.platform == "win32":
     import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace")
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace", line_buffering=True)
+    sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding="utf-8", errors="replace", line_buffering=True)
 
 import typer
 from rich.console import Console
@@ -32,7 +32,9 @@ from yahll.memory.snapshots import snapshot_source, restore_snapshot
 from yahll.memory.upgrades import run_tests, bump_patch_version, git_commit_upgrade
 
 app = typer.Typer(help="Yahll — your self-evolving local AI coding agent", add_completion=False)
-console = Console()
+# Create Console pointing at the (possibly redirected) sys.stdout so Rich
+# never holds a reference to the old closed stream on Windows.
+console = Console(file=sys.stdout)
 
 VERSION = "0.1.0"
 PROJECT_DIR = os.path.expanduser("~/Desktop/Yahll Project")
