@@ -30,6 +30,7 @@ from yahll.memory.identity import get_identity_context, load_identity
 from yahll.memory.knowledge import get_knowledge_context, append_knowledge
 from yahll.memory.snapshots import snapshot_source, restore_snapshot
 from yahll.memory.upgrades import run_tests, bump_patch_version, git_commit_upgrade
+from yahll.memory.palace import init_palace, load_context, mine_session, search as palace_search
 
 app = typer.Typer(help="Yahll — your self-evolving local AI coding agent", add_completion=False)
 # Create Console pointing at the (possibly redirected) sys.stdout so Rich
@@ -42,12 +43,19 @@ PROJECT_DIR = os.path.expanduser("~/Desktop/Yahll Project")
 
 def _make_agent(config: dict) -> Agent:
     agent = Agent(model=config["model"], base_url=config["ollama_url"])
+    init_palace()
 
     # Build combined context: identity + knowledge + last session patch
     parts = [get_identity_context()]
     knowledge = get_knowledge_context()
     if knowledge:
         parts.append(knowledge)
+
+    # MemPalace: Layer 0 (identity) + Layer 1 (top moments)
+    palace_ctx = load_context()
+    if palace_ctx:
+        parts.append(f"## LONG-TERM MEMORY (MemPalace)\n{palace_ctx}")
+
     patch = load_latest_patch()
     if patch:
         parts.append(build_context_from_patch(patch))
@@ -69,6 +77,7 @@ def _handle_slash_command(cmd: str, agent: Agent, config: dict) -> bool:
             ("/status",     "version + last session info"),
             ("/history",    "all saved session patches"),
             ("/memory",     "what Yahll knows about you"),
+            ("/recall QUERY",  "search long-term memory palace"),
             ("/model NAME", "switch Ollama model"),
             ("/upgrade",    "Yahll audits and improves itself"),
             ("/clear",      "clear session context"),
@@ -186,6 +195,28 @@ def _handle_slash_command(cmd: str, agent: Agent, config: dict) -> bool:
 
         return True
 
+    if command == "/recall":
+        query = " ".join(parts[1:]).strip()
+        if not query:
+            console.print("  [dim]Usage: /recall <what you want to find>[/dim]")
+            return True
+        console.print(f"\n  [bold cyan]RECALL[/bold cyan]  [dim cyan]── \"{query}\"[/dim cyan]")
+        console.print(Rule(style="cyan dim"))
+        with console.status("  [dim cyan]SEARCHING PALACE...[/dim cyan]", spinner="dots"):
+            results = palace_search(query, n=5)
+        if not results:
+            console.print("  [dim]No memories found.[/dim]")
+        else:
+            for i, excerpt in enumerate(results, 1):
+                console.print(f"  [dim cyan][{i}][/dim cyan] {excerpt[:300]}")
+                console.print()
+            console.print(Rule(style="cyan dim"))
+            console.print(f"  [dim]{len(results)} memories recalled.[/dim]\n")
+            agent.inject_context(
+                f"RECALLED MEMORIES for '{query}':\n" + "\n---\n".join(results)
+            )
+        return True
+
     if command == "/clear":
         agent.clear()
         console.print("[yellow]Session context cleared.[/yellow]")
@@ -233,6 +264,7 @@ def _save_session(agent: Agent, config: dict):
     patch_data = {**smart, "model": config["model"]}
     save_patch(patch_data)
     _save_to_project(patch_data)
+    mine_session(agent.messages)  # store verbatim in MemPalace (background thread)
 
 
 def _save_to_project(patch_data: dict):
