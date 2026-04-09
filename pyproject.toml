@@ -15,6 +15,7 @@ dependencies = [
     "ddgs>=0.1",
     "pyperclip>=1.8.0",
     "fpdf2>=2.7.0",
+    "mempalace @ git+https://github.com/milla-jovovich/mempalace.git",
 ]
 
 [project.optional-dependencies]
