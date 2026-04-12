@@ -4,6 +4,12 @@ from yahll.tools.search import search_files, list_directory
 from yahll.tools.self_tools import self_read, self_write, self_list
 from yahll.tools.web_search import web_search, web_news
 from yahll.tools.clipboard import clipboard_read, clipboard_write
+from yahll.tools.screenshot import screenshot
+from yahll.memory.knowledge_base import load_skill
+from yahll.tools.desktop import (
+    mouse_move, mouse_click, keyboard_type, keyboard_hotkey,
+    get_screen_size, get_active_window, browser_open, open_app,
+)
 
 TOOL_SCHEMAS = [
     {
@@ -209,6 +215,157 @@ TOOL_SCHEMAS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "load_skill",
+            "description": (
+                "Load a skill file from the knowledge base (A Taste of Knowlegement). "
+                "Use this when you need domain knowledge: ML, algorithms, system design, LLMs, "
+                "dev resources, research papers, etc. Pass the skill name or a keyword — fuzzy match is supported."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": (
+                            "Skill name or keyword. Examples: 'ml', 'system-design', 'algorithms', "
+                            "'llms', 'developer-resources', 'oss-alternatives', 'research-papers'."
+                        ),
+                    }
+                },
+                "required": ["name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "mouse_move",
+            "description": "Move the mouse cursor to screen coordinates (x, y).",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "x": {"type": "integer", "description": "Horizontal pixel position"},
+                    "y": {"type": "integer", "description": "Vertical pixel position"},
+                },
+                "required": ["x", "y"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "mouse_click",
+            "description": "Click the mouse at screen coordinates. button: left/right/middle. clicks: 1 or 2.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "x": {"type": "integer"},
+                    "y": {"type": "integer"},
+                    "button": {"type": "string", "default": "left"},
+                    "clicks": {"type": "integer", "default": 1},
+                },
+                "required": ["x", "y"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "keyboard_type",
+            "description": "Type text using the keyboard at the current cursor position.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "text": {"type": "string", "description": "Text to type"},
+                    "interval": {"type": "number", "default": 0.02, "description": "Delay between keystrokes in seconds"},
+                },
+                "required": ["text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "keyboard_hotkey",
+            "description": "Press a keyboard hotkey combination. E.g. ['ctrl','c'], ['alt','tab'], ['win','d'].",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "keys": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of keys to press together, e.g. ['ctrl', 'c']",
+                    }
+                },
+                "required": ["keys"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_screen_size",
+            "description": "Return the screen resolution in pixels (width x height).",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_active_window",
+            "description": "Return the title and position of the currently focused window.",
+            "parameters": {"type": "object", "properties": {}, "required": []},
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "browser_open",
+            "description": "Open a URL in the default web browser.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string", "description": "URL to open"}
+                },
+                "required": ["url"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "open_app",
+            "description": "Launch an application by name or full path. E.g. 'notepad', 'calc', 'C:/path/to/app.exe'.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name_or_path": {"type": "string", "description": "App name or executable path"}
+                },
+                "required": ["name_or_path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "screenshot",
+            "description": "Take a screenshot of the current screen and save it as a PNG file.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "save_path": {
+                        "type": "string",
+                        "description": "Full path to save the PNG. Defaults to Desktop with timestamp.",
+                        "default": "",
+                    }
+                },
+                "required": [],
+            },
+        },
+    },
 ]
 
 TOOL_DISPATCH = {
@@ -226,6 +383,16 @@ TOOL_DISPATCH = {
     "web_news": web_news,
     "clipboard_read": clipboard_read,
     "clipboard_write": clipboard_write,
+    "load_skill": load_skill,
+    "screenshot": screenshot,
+    "mouse_move": mouse_move,
+    "mouse_click": mouse_click,
+    "keyboard_type": keyboard_type,
+    "keyboard_hotkey": keyboard_hotkey,
+    "get_screen_size": get_screen_size,
+    "get_active_window": get_active_window,
+    "browser_open": browser_open,
+    "open_app": open_app,
 }
 
 

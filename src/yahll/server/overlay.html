@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yahll — Jarvis Mode</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #080000;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 13px;
+    overflow: hidden;
+    user-select: none;
+    -webkit-app-region: drag;
+  }
+
+  /* ── Overlay container ── */
+  #overlay {
+    width: 500px;
+    margin: 0 auto;
+    background: #080000ee;
+    border: 1px solid #2a0000;
+    border-top: none;
+    border-radius: 0 0 12px 12px;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 4px 30px #00000088, 0 0 40px #dd111118;
+    transition: height 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+                box-shadow 0.35s ease;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  #overlay.collapsed {
+    height: 60px;
+  }
+
+  #overlay.expanded {
+    height: 300px;
+    box-shadow: 0 8px 50px #00000099, 0 0 60px #dd111125;
+  }
+
+  /* ── Compact bar (always visible) ── */
+  #bar {
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    height: 60px;
+    flex-shrink: 0;
+    gap: 12px;
+    -webkit-app-region: drag;
+    position: relative;
+  }
+
+  /* ── Close button (visible on hover) ── */
+  #close-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1px solid transparent;
+    color: #662222;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: all 0.2s;
+    -webkit-app-region: no-drag;
+    z-index: 10;
+  }
+  #bar:hover #close-btn { opacity: 1; }
+  #close-btn:hover {
+    color: #ff2020;
+    border-color: #dd111155;
+    background: #1a0000;
+    box-shadow: 0 0 8px #dd111122;
+  }
+
+  #logo-mark {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #0e0002;
+    border: 1px solid #dd111144;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: bold;
+    color: #dd1111;
+    text-shadow: 0 0 10px #dd111166;
+    flex-shrink: 0;
+    box-shadow: 0 0 12px #dd111122;
+    transition: all 0.3s;
+  }
+
+  #logo-mark.listening {
+    border-color: #dd1111;
+    box-shadow: 0 0 18px #dd111155;
+    animation: logo-pulse 1.2s ease infinite;
+  }
+
+  @keyframes logo-pulse {
+    0%, 100% { box-shadow: 0 0 12px #dd111133; }
+    50% { box-shadow: 0 0 24px #dd111177; }
+  }
+
+  #last-response {
+    flex: 1;
+    color: #ff8888;
+    font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    opacity: 0.7;
+    transition: opacity 0.3s;
+    min-width: 0;
+  }
+
+  #last-response.fresh {
+    opacity: 1;
+    color: #ffaaaa;
+  }
+
+  #mic-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #0e0002;
+    border: 1px solid #2a0000;
+    color: #662222;
+    font-size: 15px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: all 0.2s;
+    -webkit-app-region: no-drag;
+  }
+
+  #mic-btn:hover {
+    border-color: #dd111166;
+    color: #dd1111;
+    box-shadow: 0 0 10px #dd111122;
+  }
+
+  #mic-btn.recording {
+    border-color: #dd1111;
+    color: #ff2020;
+    background: #1a0000;
+    box-shadow: 0 0 16px #dd111166;
+    animation: mic-pulse 1s ease infinite;
+  }
+
+  @keyframes mic-pulse {
+    0%, 100% { box-shadow: 0 0 10px #dd111155; }
+    50% { box-shadow: 0 0 24px #dd1111bb; }
+  }
+
+  /* ── Expanded area ── */
+  #expanded {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 0 16px 14px;
+    opacity: 0;
+    transform: translateY(-8px);
+    transition: opacity 0.25s ease 0.1s, transform 0.25s ease 0.1s;
+    overflow: hidden;
+  }
+
+  #overlay.expanded #expanded {
+    opacity: 1;
+    transform: none;
+  }
+
+  /* Response bubble */
+  #response-area {
+    flex: 1;
+    display: flex;
+    align-items: flex-start;
+    padding: 8px 0;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  #response-area::-webkit-scrollbar { display: none; }
+
+  #response-text {
+    color: #ff8888;
+    font-size: 13px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .cursor {
+    display: inline-block;
+    width: 7px;
+    height: 13px;
+    background: #dd1111;
+    animation: blink 0.8s steps(1) infinite;
+    vertical-align: text-bottom;
+    margin-left: 1px;
+    box-shadow: 0 0 4px #dd111188;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* Input row */
+  #input-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-shrink: 0;
+    padding-top: 8px;
+    border-top: 1px solid #1e0000;
+    -webkit-app-region: no-drag;
+  }
+
+  #text-input {
+    flex: 1;
+    background: #0a0001;
+    border: 1px solid #2a0000;
+    border-radius: 4px;
+    color: #ff8888;
+    font-family: inherit;
+    font-size: 12px;
+    padding: 8px 12px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  #text-input:focus {
+    border-color: #cc111155;
+    box-shadow: 0 0 0 1px #cc111122;
+  }
+  #text-input::placeholder { color: #441818; }
+
+  #send-btn {
+    padding: 8px 14px;
+    background: #cc111118;
+    border: 1px solid #cc111155;
+    color: #dd1111;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+    letter-spacing: 1px;
+    transition: all 0.15s;
+  }
+  #send-btn:hover { background: #cc111130; border-color: #dd1111aa; }
+
+  /* Status indicator */
+  #status {
+    font-size: 10px;
+    color: #552222;
+    text-align: center;
+    padding: 2px 0 0;
+    height: 16px;
+    letter-spacing: 0.5px;
+  }
+
+  /* Fade-out animation */
+  .fade-out {
+    animation: fadeAway 1s ease forwards;
+  }
+  @keyframes fadeAway {
+    from { opacity: 1; }
+    to { opacity: 0.3; }
+  }
+</style>
+</head>
+<body>
+
+<div id="overlay" class="collapsed">
+  <!-- Compact bar -->
+  <div id="bar">
+    <div id="logo-mark">Y</div>
+    <div id="last-response">Ready.</div>
+    <button id="mic-btn" onclick="toggleMic()" title="Click to speak">🎤</button>
+    <button id="close-btn" onclick="window.close()" title="Close">×</button>
+  </div>
+
+  <!-- Expanded area -->
+  <div id="expanded">
+    <div id="response-area">
+      <div id="response-text"></div>
+    </div>
+    <div id="input-row">
+      <input id="text-input" type="text" placeholder="Ask Jarvis..." autocomplete="off">
+      <button id="send-btn" onclick="send()">SEND</button>
+    </div>
+    <div id="status"></div>
+  </div>
+</div>
+
+<script>
+const overlay     = document.getElementById('overlay');
+const lastResp    = document.getElementById('last-response');
+const logoMark    = document.getElementById('logo-mark');
+const micBtn      = document.getElementById('mic-btn');
+const respText    = document.getElementById('response-text');
+const textInput   = document.getElementById('text-input');
+const statusEl    = document.getElementById('status');
+
+let busy          = false;
+let isRecording   = false;
+let mediaRecorder = null;
+let audioChunks   = [];
+let fadeTimer     = null;
+let collapseTimer = null;
+
+// ── Expand / Collapse ──
+function expand() {
+  clearTimeout(collapseTimer);
+  overlay.classList.remove('collapsed');
+  overlay.classList.add('expanded');
+  textInput.focus();
+}
+
+function collapse() {
+  overlay.classList.remove('expanded');
+  overlay.classList.add('collapsed');
+}
+
+function scheduleCollapse(ms = 8000) {
+  clearTimeout(collapseTimer);
+  collapseTimer = setTimeout(() => {
+    if (!busy && !isRecording) collapse();
+  }, ms);
+}
+
+// Click the bar area to expand
+document.getElementById('bar').addEventListener('click', (e) => {
+  if (e.target === micBtn || micBtn.contains(e.target)) return;
+  if (overlay.classList.contains('collapsed')) {
+    expand();
+  } else {
+    collapse();
+  }
+});
+
+// ── Send message ──
+async function send() {
+  const text = textInput.value.trim();
+  if (!text || busy) return;
+
+  busy = true;
+  textInput.value = '';
+  expand();
+  respText.textContent = '';
+  statusEl.textContent = 'thinking...';
+  clearTimeout(fadeTimer);
+
+  const cursor = document.createElement('span');
+  cursor.className = 'cursor';
+  respText.appendChild(cursor);
+
+  let fullText = '';
+
+  try {
+    const res = await fetch('/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message: text}),
+    });
+
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, {stream: true});
+      const lines = buf.split('\n');
+      buf = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6).trim();
+        if (raw === '[DONE]') break;
+        let data;
+        try { data = JSON.parse(raw); } catch { continue; }
+
+        if (data.type === 'token') {
+          fullText += data.text;
+          cursor.insertAdjacentText('beforebegin', data.text);
+        }
+      }
+    }
+  } catch (e) {
+    fullText = `Connection error: ${e.message}`;
+    respText.textContent = fullText;
+  }
+
+  cursor.remove();
+  statusEl.textContent = '';
+  busy = false;
+
+  // Update compact bar text
+  lastResp.textContent = fullText || 'Done.';
+  lastResp.classList.add('fresh');
+  setTimeout(() => lastResp.classList.remove('fresh'), 3000);
+
+  // Speak the response
+  speak(fullText);
+
+  // Auto-collapse after 8s
+  scheduleCollapse(8000);
+}
+
+// Enter to send in text input
+textInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); send(); }
+  if (e.key === 'Escape') collapse();
+});
+
+// ── Voice Input — Whisper via /transcribe ──
+async function toggleMic() {
+  if (isRecording) { stopMic(); return; }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioChunks = [];
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+
+    mediaRecorder.ondataavailable = e => {
+      if (e.data.size > 0) audioChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      isRecording = false;
+      micBtn.classList.remove('recording');
+      logoMark.classList.remove('listening');
+
+      if (audioChunks.length === 0) return;
+
+      micBtn.textContent = '⏳';
+      micBtn.disabled = true;
+      statusEl.textContent = 'transcribing...';
+
+      try {
+        const blob = new Blob(audioChunks, { type: 'audio/webm' });
+        const form = new FormData();
+        form.append('audio', blob, 'recording.webm');
+        const res = await fetch('/transcribe', { method: 'POST', body: form });
+        const data = await res.json();
+        if (data.text) {
+          textInput.value = data.text;
+          send();
+        } else {
+          statusEl.textContent = `error: ${data.error || 'no text'}`;
+        }
+      } catch (e) {
+        statusEl.textContent = `mic error: ${e.message}`;
+      } finally {
+        micBtn.textContent = '🎤';
+        micBtn.disabled = false;
+      }
+    };
+
+    mediaRecorder.start();
+    isRecording = true;
+    micBtn.classList.add('recording');
+    logoMark.classList.add('listening');
+    expand();
+    statusEl.textContent = 'listening...';
+
+  } catch (e) {
+    statusEl.textContent = `mic denied: ${e.message}`;
+  }
+}
+
+function stopMic() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+}
+
+// ── Voice Output (TTS) ──
+function speak(text) {
+  if (!text || !text.trim()) return;
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  const voices = window.speechSynthesis.getVoices();
+  const preferred = voices.find(v => v.lang.startsWith('en') && v.name.includes('Natural'))
+    || voices.find(v => v.lang.startsWith('en') && !v.localService === false)
+    || voices.find(v => v.lang.startsWith('en'))
+    || voices[0];
+  if (preferred) utt.voice = preferred;
+  utt.rate  = 1.05;
+  utt.pitch = 0.95;
+  window.speechSynthesis.speak(utt);
+}
+
+// Load voices async (Chrome requires this)
+window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+
+// Focus input on window focus
+window.addEventListener('focus', () => {
+  if (overlay.classList.contains('expanded')) textInput.focus();
+});
+</script>
+</body>
+</html>

@@ -11,13 +11,26 @@ import threading
 from datetime import datetime
 from pathlib import Path
 
-import chromadb
-
-from mempalace.layers import Layer0, Layer1
+try:
+    import chromadb
+    from mempalace.layers import Layer0, Layer1
+    _PALACE_AVAILABLE = True
+except ImportError:
+    _PALACE_AVAILABLE = False
 
 PALACE_PATH = os.path.expanduser("~/.mempalace/palace")
 WING = "yahll"
 COLLECTION = "mempalace_drawers"
+
+_client: "chromadb.PersistentClient | None" = None
+
+
+def _get_client():
+    """Return a singleton ChromaDB PersistentClient, creating it on first call."""
+    global _client
+    if _client is None:
+        _client = chromadb.PersistentClient(path=PALACE_PATH)
+    return _client
 
 
 def init_palace() -> str:
@@ -31,6 +44,8 @@ def load_context() -> str:
     Load Layer 0 (identity) + Layer 1 (top moments) for context injection.
     Returns formatted string, or empty string if palace is empty/missing.
     """
+    if not _PALACE_AVAILABLE:
+        return ""
     try:
         l0 = Layer0().render()
         l1 = Layer1(palace_path=PALACE_PATH, wing=WING).generate()
@@ -50,13 +65,15 @@ def mine_session(messages: list[dict]) -> None:
     Runs in a background thread — does not block session exit.
     Only stores user+assistant turns (skips system messages).
     """
+    if not _PALACE_AVAILABLE:
+        return
+
     def _mine():
         try:
             exchanges = _extract_exchanges(messages)
             if not exchanges:
                 return
-            client = chromadb.PersistentClient(path=PALACE_PATH)
-            col = client.get_or_create_collection(COLLECTION)
+            col = _get_client().get_or_create_collection(COLLECTION)
             now = datetime.now().isoformat()
             ids, docs, metas = [], [], []
             for i, (user_msg, assistant_msg) in enumerate(exchanges):
@@ -77,9 +94,10 @@ def search(query: str, n: int = 5) -> list[str]:
     Layer 3 semantic search across all Yahll sessions.
     Returns list of verbatim conversation excerpts.
     """
+    if not _PALACE_AVAILABLE:
+        return []
     try:
-        client = chromadb.PersistentClient(path=PALACE_PATH)
-        col = client.get_collection(COLLECTION)
+        col = _get_client().get_collection(COLLECTION)
         results = col.query(
             query_texts=[query],
             n_results=n,
@@ -105,7 +123,6 @@ def _extract_exchanges(messages: list[dict]) -> list[tuple[str, str]]:
         if msg.get("role") == "user" and next_msg.get("role") == "assistant":
             user_content = msg.get("content", "")
             assistant_content = next_msg.get("content", "")
-            # Skip tool result messages (they're just JSON blobs)
             if user_content and not user_content.startswith("<result tool="):
                 exchanges.append((user_content[:500], assistant_content[:500]))
             i += 2

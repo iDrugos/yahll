@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yahll — Local AI Agent</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  /* ── History panel ── */
+  #history-panel {
+    position: fixed;
+    top: 0; right: 0;
+    width: 320px; height: 100%;
+    background: #0a0001;
+    border-left: 1px solid #2a0000;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: -4px 0 30px #00000088;
+  }
+  #history-panel.open { transform: translateX(0); }
+
+  #history-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid #2a0000;
+    background: #0e0002;
+    flex-shrink: 0;
+  }
+  #history-header h3 {
+    font-size: 13px; color: #dd1111;
+    letter-spacing: 2px; text-transform: uppercase;
+    font-weight: bold;
+  }
+  #history-close {
+    background: transparent; border: none;
+    color: #662222; font-size: 16px; cursor: pointer;
+    transition: color 0.15s;
+  }
+  #history-close:hover { color: #ff2020; }
+
+  #history-list {
+    flex: 1; overflow-y: auto;
+    padding: 8px 0;
+    scrollbar-width: thin; scrollbar-color: #2a0000 transparent;
+  }
+  #history-list::-webkit-scrollbar { width: 4px; }
+  #history-list::-webkit-scrollbar-thumb { background: #2a0000; border-radius: 2px; }
+
+  .history-item {
+    padding: 12px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid #1a0000;
+    transition: all 0.12s;
+  }
+  .history-item:hover { background: #1a0000; }
+  .history-item:active { background: #220000; }
+
+  .history-time {
+    font-size: 10px; color: #882222;
+    letter-spacing: 0.5px; margin-bottom: 4px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .history-model {
+    font-size: 9px; color: #551111;
+    border: 1px solid #330000; padding: 1px 5px;
+    border-radius: 2px;
+  }
+  .history-summary {
+    font-size: 12px; color: #ff8888;
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+  }
+
+  .history-empty {
+    text-align: center; color: #441818;
+    font-size: 12px; padding: 40px 20px;
+    letter-spacing: 0.5px;
+  }
+
+  .history-loading {
+    text-align: center; color: #551111;
+    font-size: 11px; padding: 30px 20px;
+    letter-spacing: 1px;
+  }
+
+  /* Backdrop overlay when panel is open */
+  #history-backdrop {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: #00000055;
+    z-index: 99;
+  }
+  #history-backdrop.visible { display: block; }
+
+  body {
+    background: #080000;
+    color: #ff8888;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 14px;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  #header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    background: #0e0002;
+    border-bottom: 1px solid #2a0000;
+    flex-shrink: 0;
+  }
+  #header-left { display: flex; align-items: center; gap: 12px; }
+  #logo {
+    font-size: 20px; font-weight: bold; color: #dd1111;
+    letter-spacing: 4px;
+    text-shadow: 0 0 24px #dd111188, 0 0 6px #ff000044;
+  }
+  #model-badge {
+    font-size: 11px; color: #aa111199;
+    border: 1px solid #aa111133; padding: 2px 8px; border-radius: 3px;
+  }
+  #header-right { display: flex; align-items: center; gap: 8px; }
+
+  .btn-header {
+    background: transparent;
+    border: 1px solid #2a0000;
+    color: #662222;
+    padding: 4px 12px; border-radius: 3px;
+    cursor: pointer; font-family: inherit; font-size: 12px;
+    transition: all 0.15s;
+  }
+  .btn-header:hover { border-color: #dd111155; color: #dd1111; }
+
+  /* voice toggle */
+  #voice-toggle {
+    background: transparent;
+    border: 1px solid #2a0000;
+    color: #662222;
+    width: 32px; height: 32px; border-radius: 3px;
+    cursor: pointer; font-size: 15px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  #voice-toggle:hover { border-color: #dd111155; color: #dd1111; }
+  #voice-toggle.active { border-color: #dd1111; color: #dd1111; background: #dd111118; box-shadow: 0 0 8px #dd111133; }
+
+  #status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #ff2020;
+    box-shadow: 0 0 8px #ff2020cc;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+
+  /* ── Skills bar ── */
+  #skills-bar {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 20px;
+    background: #0a0001;
+    border-bottom: 1px solid #1e0000;
+    overflow-x: auto; flex-shrink: 0;
+    scrollbar-width: none;
+  }
+  #skills-bar::-webkit-scrollbar { display: none; }
+
+  #skills-label {
+    font-size: 10px; color: #551111;
+    text-transform: uppercase; letter-spacing: 1px;
+    white-space: nowrap; margin-right: 4px; flex-shrink: 0;
+  }
+
+  .skill-chip {
+    font-size: 11px;
+    color: #882222;
+    border: 1px solid #330000;
+    padding: 4px 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    white-space: nowrap;
+    background: #0e0002;
+    font-family: inherit;
+    transition: all 0.12s;
+    user-select: none;
+    position: relative;
+    top: 0;
+  }
+  .skill-chip:hover {
+    border-color: #cc1111;
+    color: #ff4444;
+    background: #1a0000;
+    box-shadow: 0 0 8px #cc111122;
+  }
+  .skill-chip:active {
+    top: 1px;
+    box-shadow: none;
+    background: #0a0001;
+  }
+  .skill-chip.loaded {
+    border-color: #cc1111;
+    color: #ff3333;
+    background: #1a0000;
+    box-shadow: 0 0 10px #cc111133, inset 0 0 6px #cc111111;
+    font-weight: bold;
+  }
+  .skill-chip.loading {
+    opacity: 0.5;
+    cursor: wait;
+  }
+
+  /* ── Messages ── */
+  #messages {
+    flex: 1; overflow-y: auto;
+    padding: 20px; display: flex; flex-direction: column; gap: 16px;
+    scrollbar-width: thin; scrollbar-color: #2a0000 transparent;
+  }
+  #messages::-webkit-scrollbar { width: 4px; }
+  #messages::-webkit-scrollbar-thumb { background: #2a0000; border-radius: 2px; }
+
+  .msg { display: flex; flex-direction: column; max-width: 80%; gap: 4px; animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
+
+  .msg.user { align-self: flex-end; align-items: flex-end; }
+  .msg.yahll { align-self: flex-start; align-items: flex-start; }
+
+  .msg-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 2px; color: #663333;
+  }
+  .msg.user .msg-label { color: #cc4444; }
+
+  .msg-bubble {
+    padding: 10px 16px; border-radius: 4px;
+    line-height: 1.65; white-space: pre-wrap; word-break: break-word;
+  }
+  .msg.user .msg-bubble { background: #1a0000; border: 1px solid #cc111133; color: #ffaaaa; }
+  .msg.yahll .msg-bubble { background: #0e0002; border: 1px solid #2a0000; color: #ff8888; }
+
+  .tool-badge {
+    display: inline-block; font-size: 10px;
+    color: #cc111199; border: 1px solid #cc111133;
+    padding: 1px 6px; border-radius: 2px;
+    margin: 4px 2px 0 0; font-family: inherit; background: #cc111108;
+  }
+
+  .cursor {
+    display: inline-block; width: 8px; height: 14px;
+    background: #dd1111;
+    animation: blink 0.8s steps(1) infinite;
+    vertical-align: text-bottom; margin-left: 1px;
+    box-shadow: 0 0 6px #dd111188;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* ── Input area ── */
+  #input-area {
+    flex-shrink: 0; padding: 14px 20px;
+    background: #0e0002; border-top: 1px solid #2a0000;
+    display: flex; gap: 8px; align-items: flex-end;
+  }
+  #input-wrap { flex: 1; }
+
+  #input {
+    width: 100%; background: #0a0001;
+    border: 1px solid #2a0000; border-radius: 4px;
+    color: #ff8888; font-family: inherit; font-size: 14px;
+    padding: 10px 14px; resize: none; outline: none;
+    min-height: 44px; max-height: 160px; overflow-y: auto;
+    line-height: 1.5; transition: border-color 0.15s;
+    scrollbar-width: thin; scrollbar-color: #2a0000 transparent;
+  }
+  #input:focus { border-color: #cc111155; box-shadow: 0 0 0 1px #cc111122; }
+  #input::placeholder { color: #441818; }
+
+  /* mic button */
+  #mic-btn {
+    width: 44px; height: 44px; flex-shrink: 0;
+    background: #0a0001; border: 1px solid #2a0000; border-radius: 4px;
+    color: #662222; font-size: 18px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s;
+  }
+  #mic-btn:hover { border-color: #cc111155; color: #dd1111; }
+  #mic-btn.recording {
+    border-color: #dd1111; color: #ff2020;
+    background: #1a0000;
+    box-shadow: 0 0 14px #dd111166;
+    animation: mic-pulse 1s ease infinite;
+  }
+  @keyframes mic-pulse { 0%,100%{box-shadow:0 0 10px #dd111155} 50%{box-shadow:0 0 22px #dd1111bb} }
+
+  #send-btn {
+    height: 44px; padding: 0 20px; flex-shrink: 0;
+    background: #cc111118; border: 1px solid #cc111155;
+    color: #dd1111; border-radius: 4px;
+    cursor: pointer; font-family: inherit; font-size: 13px;
+    letter-spacing: 1px; transition: all 0.15s;
+    text-shadow: 0 0 8px #dd111166;
+  }
+  #send-btn:hover:not(:disabled) { background: #cc111130; box-shadow: 0 0 14px #cc111133; border-color: #dd1111aa; }
+  #send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  #hint { font-size: 10px; color: #441818; margin-top: 6px; text-align: center; letter-spacing: 0.5px; }
+
+  /* ── Empty state ── */
+  #empty-state {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 8px;
+    pointer-events: none; user-select: none;
+  }
+  #empty-state .big {
+    font-size: 64px; font-weight: bold; color: #220000;
+    letter-spacing: 8px; text-shadow: 0 0 40px #440000;
+  }
+  #empty-state .sub { font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: #3a1010; }
+
+  .sys-msg { text-align: center; font-size: 11px; color: #663333; padding: 4px 0; letter-spacing: 1px; }
+
+  /* speaking indicator */
+  #speaking-bar {
+    display: none;
+    align-items: center; gap: 6px;
+    padding: 4px 20px; background: #0e0002; border-top: 1px solid #1e0000;
+    font-size: 11px; color: #882222;
+  }
+  #speaking-bar.visible { display: flex; }
+  .speak-dot { width: 5px; height: 5px; border-radius: 50%; background: #dd1111; animation: speak 0.6s ease infinite; }
+  .speak-dot:nth-child(2) { animation-delay: 0.15s; }
+  .speak-dot:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes speak { 0%,100%{transform:scaleY(1)} 50%{transform:scaleY(2.2)} }
+
+  /* ── Code blocks (highlight.js overrides) ── */
+  .msg-bubble pre {
+    position: relative;
+    background: #0e0002;
+    border: 1px solid #330000;
+    border-radius: 4px;
+    padding: 16px;
+    margin: 8px 0;
+    overflow-x: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #2a0000 transparent;
+  }
+  .msg-bubble pre::-webkit-scrollbar { height: 4px; }
+  .msg-bubble pre::-webkit-scrollbar-thumb { background: #2a0000; border-radius: 2px; }
+
+  .msg-bubble pre code {
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    font-size: 13px;
+    line-height: 1.55;
+    background: transparent !important;
+    padding: 0 !important;
+    color: #ff8888;
+  }
+
+  /* Override atom-one-dark background to match theme */
+  .msg-bubble pre code.hljs {
+    background: transparent !important;
+    padding: 0 !important;
+  }
+
+  /* Code block language tag */
+  .code-lang {
+    position: absolute;
+    top: 6px;
+    left: 12px;
+    font-size: 9px;
+    color: #552222;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    pointer-events: none;
+    font-family: inherit;
+  }
+
+  /* Copy button */
+  .code-copy {
+    position: absolute;
+    top: 6px;
+    right: 8px;
+    background: transparent;
+    border: 1px solid #33000088;
+    color: #dd1111;
+    padding: 3px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 11px;
+    transition: all 0.15s;
+    opacity: 0;
+  }
+  .msg-bubble pre:hover .code-copy { opacity: 1; }
+  .code-copy:hover {
+    border-color: #dd111155;
+    background: #dd111112;
+    box-shadow: 0 0 6px #dd111122;
+  }
+  .code-copy.copied {
+    color: #44bb44;
+    border-color: #44bb4444;
+  }
+
+  /* Inline code */
+  .msg-bubble code:not(pre code) {
+    background: #1a0000;
+    border: 1px solid #33000066;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 12.5px;
+    color: #ff8888;
+    font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  }
+</style>
+</head>
+<body>
+
+<div id="header">
+  <div id="header-left">
+    <div id="logo">YAHLL</div>
+    <div id="model-badge">● LOCAL</div>
+  </div>
+  <div id="header-right">
+    <div id="status-dot" title="Online"></div>
+    <button id="voice-toggle" title="Toggle voice response" onclick="toggleVoice()">🔊</button>
+    <button class="btn-header" onclick="toggleHistory()" id="history-toggle" title="Session history">📋</button>
+    <button class="btn-header" onclick="clearChat()">/clear</button>
+  </div>
+</div>
+
+<div id="skills-bar">
+  <span id="skills-label">skills</span>
+</div>
+
+<div id="messages">
+  <div id="empty-state">
+    <div class="big">Y</div>
+    <div class="sub">Local AI — Zero Tokens — Full Control</div>
+    <div class="sub" style="color:#1e0000;margin-top:4px;">Ask anything. Control the desktop. Load a skill.</div>
+  </div>
+</div>
+
+<div id="speaking-bar">
+  <div class="speak-dot"></div>
+  <div class="speak-dot"></div>
+  <div class="speak-dot"></div>
+  <span>Yahll is speaking...</span>
+  <button onclick="stopSpeech()" style="margin-left:auto;background:transparent;border:none;color:#882222;cursor:pointer;font-size:11px;">■ stop</button>
+</div>
+
+<div id="input-area">
+  <div id="input-wrap">
+    <textarea id="input" placeholder="Ask Yahll anything... or press the mic" rows="1"></textarea>
+  </div>
+  <button id="mic-btn" title="Hold to speak (or click to toggle)" onclick="toggleMic()">🎤</button>
+  <button id="send-btn" onclick="send()">SEND</button>
+</div>
+<div id="hint">Enter · send &nbsp;|&nbsp; Shift+Enter · newline &nbsp;|&nbsp; 🎤 · voice input &nbsp;|&nbsp; 🔊 · voice reply &nbsp;|&nbsp; Win+Y · open anywhere</div>
+
+<!-- History panel -->
+<div id="history-backdrop" onclick="toggleHistory()"></div>
+<div id="history-panel">
+  <div id="history-header">
+    <h3>Sessions</h3>
+    <button id="history-close" onclick="toggleHistory()">×</button>
+  </div>
+  <div id="history-list">
+    <div class="history-loading">loading...</div>
+  </div>
+</div>
+
+<script>
+const messagesEl  = document.getElementById('messages');
+const inputEl     = document.getElementById('input');
+const sendBtn     = document.getElementById('send-btn');
+const emptyEl     = document.getElementById('empty-state');
+const skillsBar   = document.getElementById('skills-bar');
+const micBtn      = document.getElementById('mic-btn');
+const voiceToggle = document.getElementById('voice-toggle');
+const speakingBar = document.getElementById('speaking-bar');
+
+let busy         = false;
+let voiceEnabled = false;
+let recognition  = null;
+let isRecording  = false;
+const loadedSkills = new Set();
+
+// ── Auto-resize textarea ──
+inputEl.addEventListener('input', () => {
+  inputEl.style.height = 'auto';
+  inputEl.style.height = Math.min(inputEl.scrollHeight, 160) + 'px';
+});
+inputEl.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!busy) send(); }
+});
+
+// ═══════════════════════════════════
+//  SKILLS BAR
+// ═══════════════════════════════════
+async function loadSkillsBar() {
+  try {
+    const skills = await fetch('/skills').then(r => r.json());
+    skills.forEach(s => {
+      const chip = document.createElement('button');
+      chip.className = 'skill-chip';
+      chip.textContent = s.name;
+      chip.title = `Click to load: ${s.title}`;
+      chip.onclick = () => loadSkill(s.name, chip);
+      skillsBar.appendChild(chip);
+    });
+  } catch {}
+}
+
+async function loadSkill(name, chipEl) {
+  if (loadedSkills.has(name) || chipEl.classList.contains('loading')) return;
+  chipEl.classList.add('loading');
+  try {
+    const res = await fetch('/skill', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name}),
+    });
+    if (res.ok) {
+      loadedSkills.add(name);
+      chipEl.classList.remove('loading');
+      chipEl.classList.add('loaded');
+      chipEl.title = `✓ Loaded: ${name}`;
+      appendSysMsg(`skill loaded: ${name}`);
+    } else {
+      chipEl.classList.remove('loading');
+    }
+  } catch { chipEl.classList.remove('loading'); }
+}
+
+// ═══════════════════════════════════
+//  MESSAGES
+// ═══════════════════════════════════
+function appendMsg(role, text) {
+  emptyEl.style.display = 'none';
+  const wrap   = document.createElement('div');
+  wrap.className = `msg ${role}`;
+  const label  = document.createElement('div');
+  label.className = 'msg-label';
+  label.textContent = role === 'user' ? 'you' : 'yahll';
+  const bubble = document.createElement('div');
+  bubble.className = 'msg-bubble';
+  if (text) bubble.textContent = text;
+  wrap.appendChild(label);
+  wrap.appendChild(bubble);
+  messagesEl.appendChild(wrap);
+  scrollBottom();
+  return bubble;
+}
+
+function appendSysMsg(text) {
+  const el = document.createElement('div');
+  el.className = 'sys-msg';
+  el.textContent = `— ${text} —`;
+  messagesEl.appendChild(el);
+  scrollBottom();
+}
+
+function addCursor(bubble) {
+  const cur = document.createElement('span');
+  cur.className = 'cursor';
+  bubble.appendChild(cur);
+  return cur;
+}
+
+function scrollBottom() { messagesEl.scrollTop = messagesEl.scrollHeight; }
+
+// ═══════════════════════════════════
+//  VOICE OUTPUT (TTS)
+// ═══════════════════════════════════
+function toggleVoice() {
+  voiceEnabled = !voiceEnabled;
+  voiceToggle.classList.toggle('active', voiceEnabled);
+  voiceToggle.title = voiceEnabled ? 'Voice ON — click to disable' : 'Voice OFF — click to enable';
+  appendSysMsg(voiceEnabled ? 'voice response on' : 'voice response off');
+  if (!voiceEnabled) stopSpeech();
+}
+
+function speak(text) {
+  if (!voiceEnabled || !text.trim()) return;
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  // Pick a good voice — prefer English
+  const voices = window.speechSynthesis.getVoices();
+  const preferred = voices.find(v => v.lang.startsWith('en') && v.name.includes('Natural'))
+    || voices.find(v => v.lang.startsWith('en') && !v.localService === false)
+    || voices.find(v => v.lang.startsWith('en'))
+    || voices[0];
+  if (preferred) utt.voice = preferred;
+  utt.rate  = 1.05;
+  utt.pitch = 0.95;
+  utt.onstart = () => speakingBar.classList.add('visible');
+  utt.onend   = () => speakingBar.classList.remove('visible');
+  utt.onerror = () => speakingBar.classList.remove('visible');
+  window.speechSynthesis.speak(utt);
+}
+
+function stopSpeech() {
+  window.speechSynthesis.cancel();
+  speakingBar.classList.remove('visible');
+}
+
+// ═══════════════════════════════════
+//  VOICE INPUT — local Whisper via /transcribe
+// ═══════════════════════════════════
+let mediaRecorder = null;
+let audioChunks   = [];
+
+async function toggleMic() {
+  if (isRecording) { stopMic(); return; }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioChunks  = [];
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data); };
+
+    mediaRecorder.onstop = async () => {
+      // Stop all tracks so mic light turns off
+      stream.getTracks().forEach(t => t.stop());
+      isRecording = false;
+      micBtn.classList.remove('recording');
+      micBtn.title = 'Click to speak';
+      inputEl.placeholder = 'Ask Yahll anything... or press the mic';
+
+      if (audioChunks.length === 0) return;
+
+      // Send to local Whisper
+      micBtn.textContent = '⏳';
+      micBtn.disabled = true;
+      try {
+        const blob    = new Blob(audioChunks, { type: 'audio/webm' });
+        const form    = new FormData();
+        form.append('audio', blob, 'recording.webm');
+        const res     = await fetch('/transcribe', { method: 'POST', body: form });
+        const data    = await res.json();
+        if (data.text) {
+          inputEl.value = data.text;
+          inputEl.style.height = 'auto';
+          inputEl.style.height = Math.min(inputEl.scrollHeight, 160) + 'px';
+          if (!busy) send();
+        } else if (data.error) {
+          appendSysMsg(`transcribe error: ${data.error}`);
+        }
+      } catch (e) {
+        appendSysMsg(`transcribe failed: ${e.message}`);
+      } finally {
+        micBtn.textContent = '🎤';
+        micBtn.disabled = false;
+      }
+    };
+
+    mediaRecorder.start();
+    isRecording = true;
+    micBtn.classList.add('recording');
+    micBtn.title = 'Recording... click to stop';
+    inputEl.placeholder = '🎤 Recording — click mic to stop...';
+    inputEl.value = '';
+
+  } catch (e) {
+    appendSysMsg(`mic access denied: ${e.message}`);
+  }
+}
+
+function stopMic() {
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
+}
+
+// ═══════════════════════════════════
+//  SEND
+// ═══════════════════════════════════
+async function send() {
+  const text = inputEl.value.trim();
+  if (!text || busy) return;
+
+  busy = true;
+  sendBtn.disabled = true;
+  inputEl.value = '';
+  inputEl.style.height = 'auto';
+
+  appendMsg('user', text);
+  const bubble = appendMsg('yahll', '');
+  const cursor = addCursor(bubble);
+  let toolsEl  = null;
+  let fullText = '';
+
+  try {
+    const res = await fetch('/chat', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({message: text}),
+    });
+
+    const reader  = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, {stream: true});
+      const lines = buf.split('\n');
+      buf = lines.pop();
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const raw = line.slice(6).trim();
+        if (raw === '[DONE]') break;
+        let data;
+        try { data = JSON.parse(raw); } catch { continue; }
+
+        if (data.type === 'token') {
+          fullText += data.text;
+          cursor.insertAdjacentText('beforebegin', data.text);
+          scrollBottom();
+
+        } else if (data.type === 'tool') {
+          if (!toolsEl) {
+            toolsEl = document.createElement('div');
+            toolsEl.style.marginTop = '8px';
+            bubble.appendChild(toolsEl);
+          }
+          const badge = document.createElement('span');
+          badge.className = 'tool-badge';
+          badge.textContent = `[ ${data.text} ]`;
+          toolsEl.appendChild(badge);
+          scrollBottom();
+
+        } else if (data.type === 'error') {
+          cursor.insertAdjacentText('beforebegin', `\n[ERROR: ${data.text}]`);
+        }
+      }
+    }
+  } catch (e) {
+    cursor.insertAdjacentText('beforebegin', `[Connection error: ${e.message}]`);
+  }
+
+  cursor.remove();
+  formatBubble(bubble);
+  busy = false;
+  sendBtn.disabled = false;
+  inputEl.focus();
+
+  // Speak the response if voice is on
+  if (fullText) speak(fullText);
+}
+
+// ═══════════════════════════════════
+//  CLEAR
+// ═══════════════════════════════════
+async function clearChat() {
+  stopSpeech();
+  await fetch('/clear', {method: 'POST'});
+  messagesEl.innerHTML = '';
+  messagesEl.appendChild(emptyEl);
+  emptyEl.style.display = '';
+  appendSysMsg('session cleared');
+}
+
+// ═══════════════════════════════════
+//  INIT
+// ═══════════════════════════════════
+// Load voices async (Chrome requires this)
+window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
+
+loadSkillsBar();
+
+// ═══════════════════════════════════
+//  SESSION HISTORY
+// ═══════════════════════════════════
+const historyPanel    = document.getElementById('history-panel');
+const historyBackdrop = document.getElementById('history-backdrop');
+const historyList     = document.getElementById('history-list');
+let historyOpen = false;
+
+function toggleHistory() {
+  historyOpen = !historyOpen;
+  historyPanel.classList.toggle('open', historyOpen);
+  historyBackdrop.classList.toggle('visible', historyOpen);
+  if (historyOpen) loadSessions();
+}
+
+async function loadSessions() {
+  historyList.innerHTML = '<div class="history-loading">loading...</div>';
+  try {
+    const sessions = await fetch('/sessions').then(r => r.json());
+    historyList.innerHTML = '';
+    if (!sessions.length) {
+      historyList.innerHTML = '<div class="history-empty">No sessions saved yet.</div>';
+      return;
+    }
+    sessions.forEach(s => {
+      const item = document.createElement('div');
+      item.className = 'history-item';
+      // Format timestamp nicely
+      let timeStr = s.timestamp;
+      try {
+        const d = new Date(s.timestamp);
+        if (!isNaN(d)) timeStr = d.toLocaleString();
+      } catch {}
+      item.innerHTML = `
+        <div class="history-time">
+          ${timeStr}
+          <span class="history-model">${s.model}</span>
+        </div>
+        <div class="history-summary">${escapeHtml(s.summary)}</div>
+      `;
+      item.onclick = () => loadSession(s.filename, s.summary);
+      historyList.appendChild(item);
+    });
+  } catch (e) {
+    historyList.innerHTML = `<div class="history-empty">Failed to load: ${e.message}</div>`;
+  }
+}
+
+async function loadSession(filename, summary) {
+  try {
+    const res = await fetch('/load-session', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({filename}),
+    });
+    if (res.ok) {
+      toggleHistory();
+      appendSysMsg(`session loaded: ${summary || filename}`);
+    } else {
+      const data = await res.json();
+      appendSysMsg(`load failed: ${data.error || 'unknown error'}`);
+    }
+  } catch (e) {
+    appendSysMsg(`load failed: ${e.message}`);
+  }
+}
+
+function escapeHtml(str) {
+  const el = document.createElement('span');
+  el.textContent = str || '';
+  return el.innerHTML;
+}
+inputEl.focus();
+
+// ═══════════════════════════════════
+//  SYNTAX HIGHLIGHTING
+// ═══════════════════════════════════
+function formatBubble(bubble) {
+  const raw = bubble.textContent;
+  if (!raw.includes('```')) return;
+
+  const parts = [];
+  let remaining = raw;
+
+  while (remaining.length > 0) {
+    const openIdx = remaining.indexOf('```');
+    if (openIdx === -1) {
+      parts.push({ type: 'text', content: remaining });
+      break;
+    }
+
+    // Text before the code block
+    if (openIdx > 0) {
+      parts.push({ type: 'text', content: remaining.slice(0, openIdx) });
+    }
+
+    // Find language tag (everything after ``` until newline)
+    const afterOpen = remaining.slice(openIdx + 3);
+    const langEnd = afterOpen.indexOf('\n');
+    if (langEnd === -1) {
+      // Unclosed block — just dump as text
+      parts.push({ type: 'text', content: remaining.slice(openIdx) });
+      break;
+    }
+    const lang = afterOpen.slice(0, langEnd).trim();
+    const codeStart = afterOpen.slice(langEnd + 1);
+
+    // Find closing ```
+    const closeIdx = codeStart.indexOf('```');
+    if (closeIdx === -1) {
+      // Unclosed — push as text
+      parts.push({ type: 'text', content: remaining.slice(openIdx) });
+      break;
+    }
+
+    const code = codeStart.slice(0, closeIdx);
+    parts.push({ type: 'code', lang: lang, content: code });
+
+    // Continue after the closing ```
+    remaining = codeStart.slice(closeIdx + 3);
+  }
+
+  // Rebuild bubble
+  // Detach tool badges if any
+  const toolBadges = bubble.querySelectorAll('.tool-badge, div');
+  const savedNodes = [];
+  toolBadges.forEach(n => {
+    if (n.querySelector('.tool-badge') || n.classList.contains('tool-badge') ||
+        (n.style && n.style.marginTop)) {
+      savedNodes.push(n);
+    }
+  });
+
+  bubble.textContent = '';
+
+  parts.forEach(part => {
+    if (part.type === 'text') {
+      if (part.content.trim()) {
+        const span = document.createElement('span');
+        span.textContent = part.content;
+        bubble.appendChild(span);
+      }
+    } else {
+      const pre = document.createElement('pre');
+      const code = document.createElement('code');
+
+      // Clean trailing whitespace from code
+      let cleanCode = part.content;
+      if (cleanCode.endsWith('\n')) cleanCode = cleanCode.slice(0, -1);
+      code.textContent = cleanCode;
+
+      if (part.lang) {
+        code.className = `language-${part.lang}`;
+        // Language label
+        const langLabel = document.createElement('span');
+        langLabel.className = 'code-lang';
+        langLabel.textContent = part.lang;
+        pre.appendChild(langLabel);
+      }
+
+      pre.appendChild(code);
+
+      // Copy button
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'code-copy';
+      copyBtn.textContent = 'copy';
+      copyBtn.onclick = () => {
+        navigator.clipboard.writeText(cleanCode).then(() => {
+          copyBtn.textContent = '✓';
+          copyBtn.classList.add('copied');
+          setTimeout(() => {
+            copyBtn.textContent = 'copy';
+            copyBtn.classList.remove('copied');
+          }, 1500);
+        });
+      };
+      pre.appendChild(copyBtn);
+
+      bubble.appendChild(pre);
+
+      // Highlight
+      try { hljs.highlightElement(code); } catch {}
+    }
+  });
+
+  // Re-append tool badges
+  savedNodes.forEach(n => bubble.appendChild(n));
+}
+</script>
+</body>
+</html>

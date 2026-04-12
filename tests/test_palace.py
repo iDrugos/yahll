@@ -50,11 +50,17 @@ def test_mine_session_stores_exchanges(tmp_path):
     mock_client = MagicMock()
     mock_client.get_or_create_collection.return_value = mock_col
 
+    def fake_thread(target=None, daemon=None):
+        t = MagicMock()
+        t.start = lambda: target()
+        return t
+
     with patch("yahll.memory.palace.PALACE_PATH", palace_dir), \
-         patch("yahll.memory.palace.chromadb.PersistentClient", return_value=mock_client):
+         patch("yahll.memory.palace.threading.Thread", side_effect=fake_thread):
+        import yahll.memory.palace as palace_mod
+        palace_mod._client = mock_client
         from yahll.memory.palace import mine_session
         mine_session(messages)
-        import time; time.sleep(0.2)  # wait for background thread
 
     assert mock_col.upsert.called
 
@@ -69,11 +75,17 @@ def test_mine_session_skips_system_messages(tmp_path):
     mock_client = MagicMock()
     mock_client.get_or_create_collection.return_value = mock_col
 
+    def fake_thread(target=None, daemon=None):
+        t = MagicMock()
+        t.start = lambda: target()
+        return t
+
     with patch("yahll.memory.palace.PALACE_PATH", palace_dir), \
-         patch("yahll.memory.palace.chromadb.PersistentClient", return_value=mock_client):
+         patch("yahll.memory.palace.threading.Thread", side_effect=fake_thread):
+        import yahll.memory.palace as palace_mod
+        palace_mod._client = mock_client
         from yahll.memory.palace import mine_session
         mine_session(messages)
-        import time; time.sleep(0.2)
 
     mock_col.upsert.assert_not_called()
 
@@ -91,7 +103,7 @@ def test_search_returns_results():
     mock_client = MagicMock()
     mock_client.get_collection.return_value = mock_col
 
-    with patch("yahll.memory.palace.chromadb.PersistentClient", return_value=mock_client):
+    with patch("yahll.memory.palace._get_client", return_value=mock_client):
         from yahll.memory.palace import search
         results = search("2+2")
 
@@ -100,7 +112,7 @@ def test_search_returns_results():
 
 
 def test_search_returns_empty_on_no_palace():
-    with patch("yahll.memory.palace.chromadb.PersistentClient", side_effect=Exception("no db")):
+    with patch("yahll.memory.palace._get_client", side_effect=Exception("no db")):
         from yahll.memory.palace import search
         results = search("anything")
     assert results == []
